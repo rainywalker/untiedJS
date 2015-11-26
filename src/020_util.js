@@ -149,3 +149,104 @@ date:
 		}
 	});
 })();
+(function(){
+var lock = {}, mk = function(target){
+	var cache = {};
+	return function(v){
+		var query = v || location[target].substr(1), t0, t1, i, j;
+		if(!query) return;
+		if(!cache[query]){
+			t0 = query.split('&'), i = t0.length, t1 = {};
+			while(i--) t0[i] = t0[i].split('='), t1[decode(t0[i][0])] = decode(t0[i][1]);
+			cache[query] = t1;
+		}
+		return cache[query];
+	};
+};
+ut.immutable(
+//lock
+'lock', function(){var i = arguments.length; while(i--) lock[arguments[i]] = 1;},
+'unlock', function(){var i = arguments.length; while(i--) lock[arguments[i]] = 0;},
+'isLock', function(){var i = arguments.length; while(i--) if(lock[arguments[i]]) return 1;},
+'locker', function(k, f){
+	return function(){
+		if(lock[k]) return;
+		return lock[k] = 1, f.apply(this, arguments);
+	};
+},
+//http
+'encode', encode, 'decode', decode,
+'queryString', mk('search'),
+'hash', mk('hash'),
+'ck', function(key/*, val, expire, path*/){
+	var t0, t1, t2, i, j, v;
+	t0 = doc.cookie.split(';'), i = t0.length;
+	if(arguments.length == 1){
+		while(i--) if(t0[i].substring(0, j = t0[i].indexOf('=')).trim() == key) return decode(t0[i].substr(j + 1).trim());
+		return null;
+	}else{
+		v = arguments[1], t1 = key + '=' + encode(v) + ';domain=' + doc.domain + ';path=' + (arguments[3] || '/');
+		if(v === null) t0 = new Date, t0.setTime(t0.getTime() - 86400000), t1 += ';expires=' + t0.toUTCString();
+		else if(arguments[2]) t0 = new Date, t0.setTime(t0.getTime() + arguments[2] * 86400000), t1 += ';expires=' + t0.toUTCString();
+		return doc.cookie = t1, v;
+	}
+},
+//xml
+'xml', (function(){
+	var filter = function(v){
+		if(typeof v == 'string'){
+			if(v.substr(0, 20).indexOf('<![CDATA[') > -1) v = v.substring(0, 20).replace('<![CDATA[', '') + v.substr(20);
+			if(v.substr(v.length - 5).indexOf(']]>') > -1) v = v.substring(0, v.length - 5) + v.substr(v.length - 5).replace(']]>', '');
+			return v.trim();
+		}else return '';
+	}, type,
+	parse = W['DOMParser'] ? (function(){
+		var worker = new DOMParser;
+		type = 1;
+		return function(v){return worker.parseFromString(v, "text/xml");};
+	})() : (function(){
+		var t0 = 'MSXML2.DOMDocument', i, j;
+		t0 = ['Microsoft.XMLDOM', 'MSXML.DOMDocument', t0, t0+'.3.0', t0+'.4.0', t0+'.5.0', t0+'.6.0'], i = t0.length;
+		while(i--){
+			try{new ActiveXObject(j = t0[i]);}catch(e){continue;}
+			break;
+		}
+		return function(v){
+			var worker = new ActiveXObject(j);
+			return worker.loadXML(v), worker;
+		};
+	})(),
+	text = type ? 'textContent' : 'text',
+	stack = [];
+	return function(v, result){
+		var node, attr, name, sub, prev, parent, i, j, k, l, n, m;
+		if(!result || typeof result != 'object' || typeof result != 'function') result = {};
+		stack.length = 0,
+		v = {nodes:parse(filter(v)).childNodes,parent:result};
+		do{
+			for(i = 0, j = v.nodes.length; i < j; i++){
+				sub = {}, node = type ? v.nodes[i] : v.nodes.nextNode(), name= node.nodeName;
+				switch(node.nodeType){
+				case 3:sub.value = node[text].trim(); break;
+				case 4:sub.value = filter(node[text].trim()); break;
+				case 1:
+					if(attr = node.attributes){
+						k = attr.length;
+						while(k--) sub['$' + attr[k].name] = attr[k].value;
+					}
+					if(node.childNodes && (n = node.childNodes.length)) while(n--) if(node.childNodes[n].nodeType == 1){
+						stacks[stacks.length] = {parent:sub, nodes:node.childNodes};
+						break;
+					}
+					parent = stack.parent;
+					if(prev = parent[name]){
+						if(prev.length === undefined) parent[name] = {length:2, 0:prev, 1:sub};
+						else parent[name][prev.length++] = sub;
+					}else parent[name] = sub;
+				}
+			}
+		}while(v = stacks.pop())
+		return result;
+	};
+})()
+);
