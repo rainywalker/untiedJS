@@ -14,12 +14,14 @@ utiedJS(풀린JS^^)는 다음의 방법을 통해 DOM객체가 정적이라는 �
 ### 기본적인 아이디어
 
 ```html
-<div data-touchstart='a'>test</div>
+<div data-click="some">test</div>
 ```
 위와 같은 html조각에서 div태그에 기술된 data-touchstart는 a라는 값으로 자신의 동작이 어떤 js객체로 수행되면 좋을지에 대한 힌트를 제공함.
 
 ```javascript
-var data = {a:function(e){console.log('test touched!');}};
+var data = {
+    some:function(e){console.log('test touched!');}
+};
 ```
 개념상 순수한 js는 DOM과 전혀 객체로 바인딩 되어있지 않으므로 어떤 DOM과도 연결될 수 있으며 해당 DOM이 새로 설정되어도 상관없음
 
